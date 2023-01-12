@@ -1,0 +1,42 @@
+name: CI-CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AZURE_WEBAPP_NAME: movieswebjm
+  AZURE_WEBAPP_PACKAGE_PATH: '.' 
+  DOTNET_VERSION: '6.0.x'
+
+jobs:
+  buildAndDeploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore dependencies
+      run: dotnet restore ./Movies.WebApp/Movies.WebApp.csproj
+    - name: Build
+      run: dotnet build -c Release --no-restore ./Movies.WebApp/Movies.WebApp.csproj
+    - name: Test
+      run: dotnet test
+    - name: dotnet publish
+      run: dotnet publish -c Release -o ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/myapp ./Movies.WebApp/Movies.WebApp.csproj
+    - name: Upload artifact for deployment job
+      uses: actions/upload-artifact@v3
+      with:
+        name: .net-app
+        path: ${{env.DOTNET_ROOT}}/myapp
+
+    - name: 'Run Azure webapp deploy action using publish profile credentials'
+      uses: azure/webapps-deploy@v2
+      with: 
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE  }}
+        package: '${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/myapp'
